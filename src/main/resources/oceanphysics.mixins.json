@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.oceanphysics.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "BoatEntityMixin",
+    "WaterFluidMixin",
+    "FlowableFluidMixin",
+    "FishingBobberMixin",
+    "ItemEntityMixin",
+    "LivingEntityMixin",
+    "FallingBlockEntityMixin",
+    "TntEntityMixin",
+    "AbstractMinecartEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

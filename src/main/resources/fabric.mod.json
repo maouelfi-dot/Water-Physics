@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "oceanphysics",
+  "version": "${version}",
+  "name": "Water Physics",
+  "description": "Fisika air: ombak, riak dari gerakan dan hujan, kapal/pemain/mob/item ikut terombang-ambing.",
+  "authors": ["you"],
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.oceanphysics.OceanPhysicsMod"],
+    "client": ["com.oceanphysics.client.OceanPhysicsClient"]
+  },
+  "mixins": [
+    "oceanphysics.mixins.json",
+    { "config": "oceanphysics.client.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
