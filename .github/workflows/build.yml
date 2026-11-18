@@ -50,27 +50,21 @@ jobs:
               if "treeMaxLeaves" not in t:
                   t = t.replace("{", "{\n    public int treeMaxLeaves = 200;", 1)
                   p.write_text(t)
-                  print(f"FIX WaveConfig: tambah treeMaxLeaves di {p}")
+                  print(f"FIX WaveConfig: {p}")
 
           # --- FIX 2: gabungin deklarasi dobel di WaveMath.java ---
           for p in pathlib.Path("src/main/java").rglob("WaveMath.java"):
               lines = p.read_text().splitlines()
-              # cari semua baris deklarasi array double
               decl_idx = []
               all_vars = []
               for i, line in enumerate(lines):
                   if "private static final double[]" in line:
                       decl_idx.append(i)
-                      # ambil nama variabelnya: KX, KZ, KK, LAMBDA, MODX, dll
-                      vars_in_line = re.findall(r'([A-Z_][A-Z0-9_]*)\s*=', line)
-                      for v in vars_in_line:
+                      for v in re.findall(r'([A-Z_][A-Z0-9_]*)\s*=', line):
                           if v not in all_vars:
                               all_vars.append(v)
               if len(decl_idx) > 1:
-                  print(f"FIX WaveMath: ketemu {len(decl_idx)} deklarasi dobel, variabel: {all_vars}")
-                  # bikin 1 baris gabungan
                   merged = "    private static final double[] " + ", ".join([f"{v} = new double[N]" for v in all_vars]) + ";"
-                  # hapus semua baris deklarasi lama, sisipkan yang gabungan di posisi pertama
                   new_lines = []
                   inserted = False
                   for i, line in enumerate(lines):
@@ -81,7 +75,34 @@ jobs:
                           continue
                       new_lines.append(line)
                   p.write_text("\n".join(new_lines) + "\n")
-                  print(f"FIX WaveMath: digabung jadi -> {merged}")
+                  print(f"FIX WaveMath: digabung -> {merged}")
+
+          # --- FIX 3: CameraSubmersionType gak ada di 1.21.1 ---
+          for p in pathlib.Path("src").rglob("OceanRenderer.java"):
+              t = p.read_text()
+              if "CameraSubmersionType" in t:
+                  print(f"FIX OceanRenderer: {p}")
+                  # 1. hapus import yang salah
+                  t = re.sub(r'import\s+net\.minecraft\.client\.render\.CameraSubmersionType;\n', '', t)
+                  # 2. ganti pemakaian CameraSubmersionType.WATER / LAVA / dll jadi cek string dari camera
+                  # contoh: == CameraSubmersionType.WATER -> .toString().equals("WATER")
+                  # kita ganti jadi cara 1.21.1 yang aman: camera.getSubmersionType().toString().equals("WATER")
+                  # cari nama variabel camera yang dipake, default 'camera'
+                  # pola umum: CameraSubmersionType.WATER, CameraSubmersionType.LAVA, dll
+                  def repl(m):
+                      val = m.group(1)
+                      return f'camera.getSubmersionType().toString().equals("{val}")'
+                  # kalau ada pola "== CameraSubmersionType.WATER" atau "!= CameraSubmersionType.WATER"
+                  t = re.sub(r'==\s*CameraSubmersionType\.([A-Z_]+)', r'.toString().equals("\1") == true && camera.getSubmersionType().toString().equals("\1")', t)
+                  t = re.sub(r'!=\s*CameraSubmersionType\.([A-Z_]+)', r'.toString().equals("\1") == false', t)
+                  # pola assignment: CameraSubmersionType x = camera.getSubmersionType()
+                  t = re.sub(r'CameraSubmersionType\s+(\w+)\s*=', r'var \1 =', t)
+                  # pola perbandingan langsung: .getSubmersionType() == CameraSubmersionType.WATER
+                  t = re.sub(r'CameraSubmersionType\.([A-Z_]+)', r'"\1"', t)
+                  # kalau masih ada sisa CameraSubmersionType, ganti jadi var / String
+                  t = t.replace("CameraSubmersionType", "String")
+                  p.write_text(t)
+                  print("FIX OceanRenderer done")
           print("auto-fix done")
           PY
 
