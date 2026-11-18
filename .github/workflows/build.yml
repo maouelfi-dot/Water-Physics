@@ -38,11 +38,11 @@ jobs:
         with:
           gradle-version: 8.10.2
 
-      - name: Auto-fix 2 error compile
+      - name: Auto-fix compile errors
         working-directory: src
         run: |
           python3 - << 'PY'
-          import pathlib
+          import pathlib, re
 
           # --- FIX 1: tambah treeMaxLeaves di WaveConfig.java ---
           for p in pathlib.Path("src/main/java").rglob("WaveConfig.java"):
@@ -52,21 +52,36 @@ jobs:
                   p.write_text(t)
                   print(f"FIX WaveConfig: tambah treeMaxLeaves di {p}")
 
-          # --- FIX 2: hapus LAMBDA yang dobel di WaveMath.java ---
+          # --- FIX 2: gabungin deklarasi dobel di WaveMath.java ---
           for p in pathlib.Path("src/main/java").rglob("WaveMath.java"):
               lines = p.read_text().splitlines()
-              seen = False
-              out = []
-              for line in lines:
-                  if "LAMBDA" in line and "double" in line and "=" in line and "final" in line:
-                      if not seen:
-                          seen = True
-                          out.append(line)
-                      else:
-                          print(f"FIX WaveMath: hapus duplikat LAMBDA -> {line.strip()}")
+              # cari semua baris deklarasi array double
+              decl_idx = []
+              all_vars = []
+              for i, line in enumerate(lines):
+                  if "private static final double[]" in line:
+                      decl_idx.append(i)
+                      # ambil nama variabelnya: KX, KZ, KK, LAMBDA, MODX, dll
+                      vars_in_line = re.findall(r'([A-Z_][A-Z0-9_]*)\s*=', line)
+                      for v in vars_in_line:
+                          if v not in all_vars:
+                              all_vars.append(v)
+              if len(decl_idx) > 1:
+                  print(f"FIX WaveMath: ketemu {len(decl_idx)} deklarasi dobel, variabel: {all_vars}")
+                  # bikin 1 baris gabungan
+                  merged = "    private static final double[] " + ", ".join([f"{v} = new double[N]" for v in all_vars]) + ";"
+                  # hapus semua baris deklarasi lama, sisipkan yang gabungan di posisi pertama
+                  new_lines = []
+                  inserted = False
+                  for i, line in enumerate(lines):
+                      if i in decl_idx:
+                          if not inserted:
+                              new_lines.append(merged)
+                              inserted = True
                           continue
-                  out.append(line)
-              p.write_text("\n".join(out) + "\n")
+                      new_lines.append(line)
+                  p.write_text("\n".join(new_lines) + "\n")
+                  print(f"FIX WaveMath: digabung jadi -> {merged}")
           print("auto-fix done")
           PY
 
