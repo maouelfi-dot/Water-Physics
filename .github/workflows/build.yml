@@ -1,8 +1,8 @@
-name: Build dar water.zip
 on:
   push:
     paths:
       - 'water.zip'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 jobs:
   build:
