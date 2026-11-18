@@ -1,3 +1,4 @@
+name: Build dar water.zip
 on:
   push:
     paths:
@@ -12,26 +13,12 @@ jobs:
         with:
           lfs: true
 
-      - name: Cek isi water.zip
-        run: |
-          ls -lh water.zip
-          file water.zip
-          unzip -l water.zip | head -n 100
-
       - name: Ekstrak water.zip
         run: |
           rm -rf src
           mkdir src
           unzip -q water.zip -d src
-          echo "--- ISI SRC ---"
-          find src -maxdepth 3 -type f | head -n 100
-          # cari build.gradle / build.gradle.kts dimanapun
           BUILD_FILE=$(find src -maxdepth 4 -name "build.gradle*" | head -n 1)
-          echo "Ketemu: $BUILD_FILE"
-          if [ -z "$BUILD_FILE" ]; then
-            echo "GAK ADA build.gradle, isi zip-nya bukan source mod!"
-            exit 1
-          fi
           D=$(dirname "$BUILD_FILE")
           if [ "$D" != "src" ]; then
             mv "$D" src_real && rm -rf src && mv src_real src
@@ -43,15 +30,13 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
       - name: Build
         working-directory: src
-        run: |
-          chmod +x gradlew || true
-          if [ -f gradlew ]; then
-            ./gradlew build --no-daemon --stacktrace
-          else
-            gradle build --no-daemon --stacktrace
-          fi
+        run: gradle build --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
