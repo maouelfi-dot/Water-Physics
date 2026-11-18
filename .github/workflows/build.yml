@@ -50,7 +50,6 @@ jobs:
               if "treeMaxLeaves" not in t:
                   t = t.replace("{", "{\n    public int treeMaxLeaves = 200;", 1)
                   p.write_text(t)
-                  print(f"FIX WaveConfig: {p}")
 
           # --- FIX 2: gabungin deklarasi dobel di WaveMath.java ---
           for p in pathlib.Path("src/main/java").rglob("WaveMath.java"):
@@ -75,34 +74,27 @@ jobs:
                           continue
                       new_lines.append(line)
                   p.write_text("\n".join(new_lines) + "\n")
-                  print(f"FIX WaveMath: digabung -> {merged}")
 
-          # --- FIX 3: CameraSubmersionType gak ada di 1.21.1 ---
+          # --- FIX 3: CameraSubmersionType di OceanRenderer.java ---
           for p in pathlib.Path("src").rglob("OceanRenderer.java"):
-              t = p.read_text()
-              if "CameraSubmersionType" in t:
-                  print(f"FIX OceanRenderer: {p}")
-                  # 1. hapus import yang salah
-                  t = re.sub(r'import\s+net\.minecraft\.client\.render\.CameraSubmersionType;\n', '', t)
-                  # 2. ganti pemakaian CameraSubmersionType.WATER / LAVA / dll jadi cek string dari camera
-                  # contoh: == CameraSubmersionType.WATER -> .toString().equals("WATER")
-                  # kita ganti jadi cara 1.21.1 yang aman: camera.getSubmersionType().toString().equals("WATER")
-                  # cari nama variabel camera yang dipake, default 'camera'
-                  # pola umum: CameraSubmersionType.WATER, CameraSubmersionType.LAVA, dll
-                  def repl(m):
-                      val = m.group(1)
-                      return f'camera.getSubmersionType().toString().equals("{val}")'
-                  # kalau ada pola "== CameraSubmersionType.WATER" atau "!= CameraSubmersionType.WATER"
-                  t = re.sub(r'==\s*CameraSubmersionType\.([A-Z_]+)', r'.toString().equals("\1") == true && camera.getSubmersionType().toString().equals("\1")', t)
-                  t = re.sub(r'!=\s*CameraSubmersionType\.([A-Z_]+)', r'.toString().equals("\1") == false', t)
-                  # pola assignment: CameraSubmersionType x = camera.getSubmersionType()
-                  t = re.sub(r'CameraSubmersionType\s+(\w+)\s*=', r'var \1 =', t)
-                  # pola perbandingan langsung: .getSubmersionType() == CameraSubmersionType.WATER
-                  t = re.sub(r'CameraSubmersionType\.([A-Z_]+)', r'"\1"', t)
-                  # kalau masih ada sisa CameraSubmersionType, ganti jadi var / String
-                  t = t.replace("CameraSubmersionType", "String")
-                  p.write_text(t)
-                  print("FIX OceanRenderer done")
+              lines = p.read_text().splitlines()
+              out = []
+              for line in lines:
+                  # buang import yang salah
+                  if "import" in line and "CameraSubmersionType" in line:
+                      continue
+                  # kalau ada baris boolean under yang pake CameraSubmersionType, ganti total 1 baris bersih
+                  if "boolean under" in line and "getSubmersionType" in line:
+                      indent = line[:len(line) - len(line.lstrip())]
+                      out.append(indent + 'boolean under = ctx.camera().getSubmersionType().toString().equals("WATER");')
+                      continue
+                  # kalau masih ada sisa CameraSubmersionType di baris lain, ganti jadi String "WATER"/"LAVA" dll
+                  if "CameraSubmersionType" in line:
+                      line = re.sub(r'CameraSubmersionType\.([A-Z_]+)', r'"\1"', line)
+                      line = line.replace("CameraSubmersionType", "String")
+                  out.append(line)
+              p.write_text("\n".join(out) + "\n")
+              print("FIX OceanRenderer done")
           print("auto-fix done")
           PY
 
