@@ -19,6 +19,10 @@ jobs:
           mkdir src
           unzip -q water.zip -d src
           BUILD_FILE=$(find src -maxdepth 4 -name "build.gradle*" | head -n 1)
+          if [ -z "$BUILD_FILE" ]; then
+            echo "GAK ADA build.gradle, isi zip-nya bukan source mod!"
+            exit 1
+          fi
           D=$(dirname "$BUILD_FILE")
           if [ "$D" != "src" ]; then
             mv "$D" src_real && rm -rf src && mv src_real src
@@ -33,6 +37,38 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.10.2
+
+      - name: Auto-fix 2 error compile
+        working-directory: src
+        run: |
+          python3 - << 'PY'
+          import pathlib
+
+          # --- FIX 1: tambah treeMaxLeaves di WaveConfig.java ---
+          for p in pathlib.Path("src/main/java").rglob("WaveConfig.java"):
+              t = p.read_text()
+              if "treeMaxLeaves" not in t:
+                  t = t.replace("{", "{\n    public int treeMaxLeaves = 200;", 1)
+                  p.write_text(t)
+                  print(f"FIX WaveConfig: tambah treeMaxLeaves di {p}")
+
+          # --- FIX 2: hapus LAMBDA yang dobel di WaveMath.java ---
+          for p in pathlib.Path("src/main/java").rglob("WaveMath.java"):
+              lines = p.read_text().splitlines()
+              seen = False
+              out = []
+              for line in lines:
+                  if "LAMBDA" in line and "double" in line and "=" in line and "final" in line:
+                      if not seen:
+                          seen = True
+                          out.append(line)
+                      else:
+                          print(f"FIX WaveMath: hapus duplikat LAMBDA -> {line.strip()}")
+                          continue
+                  out.append(line)
+              p.write_text("\n".join(out) + "\n")
+          print("auto-fix done")
+          PY
 
       - name: Build
         working-directory: src
