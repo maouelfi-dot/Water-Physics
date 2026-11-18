@@ -1,19 +1,59 @@
-name: build
-on: [push, workflow_dispatch]
+name: Build dar water.zip
+on:
+  push:
+    paths:
+      - 'water.zip'
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cek isi water.zip
+        run: |
+          ls -lh water.zip
+          file water.zip
+          unzip -l water.zip | head -n 100
+
+      - name: Ekstrak water.zip
+        run: |
+          rm -rf src
+          mkdir src
+          unzip -q water.zip -d src
+          echo "--- ISI SRC ---"
+          find src -maxdepth 3 -type f | head -n 100
+          # cari build.gradle / build.gradle.kts dimanapun
+          BUILD_FILE=$(find src -maxdepth 4 -name "build.gradle*" | head -n 1)
+          echo "Ketemu: $BUILD_FILE"
+          if [ -z "$BUILD_FILE" ]; then
+            echo "GAK ADA build.gradle, isi zip-nya bukan source mod!"
+            exit 1
+          fi
+          D=$(dirname "$BUILD_FILE")
+          if [ "$D" != "src" ]; then
+            mv "$D" src_real && rm -rf src && mv src_real src
+          fi
+          ls -la src
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.10.2
-      - run: gradle build
+
+      - name: Build
+        working-directory: src
+        run: |
+          chmod +x gradlew || true
+          if [ -f gradlew ]; then
+            ./gradlew build --no-daemon --stacktrace
+          else
+            gradle build --no-daemon --stacktrace
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
-          name: oceanphysics-jar
-          path: build/libs/*.jar
+          name: waterphysics-fabric-1.21.1
+          path: src/build/libs/*.jar
