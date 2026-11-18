@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ekstra water.zip
+      - name: Ekstrak water.zip
         run: |
           mkdir src
           unzip -q water.zip -d src
