@@ -1,4 +1,4 @@
-name: Build dari water.zip
+name: Build dar water.zip
 on:
   push:
     paths:
